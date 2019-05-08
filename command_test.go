@@ -1379,6 +1379,47 @@ func TestSetOutput(t *testing.T) {
 	if out := c.OutOrStdout(); out != os.Stdout {
 		t.Errorf("Expected setting output to nil to revert back to stdout")
 	}
+	if out := c.OutOrStderr(); out != os.Stderr {
+		t.Errorf("Expected setting output to nil to revert back to stderr")
+	}
+}
+
+func TestOutOrStdout(t *testing.T) {
+	c := &Command{}
+	c.stdOutput = nil
+	if out := c.OutOrStdout(); out != os.Stdout {
+		t.Errorf("Expected nil output to fallback to stdout")
+	}
+
+	bb := new(bytes.Buffer)
+	c.stdOutput = bb
+	if out := c.OutOrStdout(); out != bb {
+		t.Errorf("Expected stdOutput to be returned")
+	}
+
+	ch := &Command{parent: c}
+	if out := ch.OutOrStdout(); out != bb {
+		t.Errorf("Expected parent's stdOutput to be returned")
+	}
+}
+
+func TestOutOrStderr(t *testing.T) {
+	c := &Command{}
+	c.errOutput = nil
+	if out := c.OutOrStderr(); out != os.Stderr {
+		t.Errorf("Expected nil output to fallback to stderr")
+	}
+
+	bb := new(bytes.Buffer)
+	c.errOutput = bb
+	if out := c.OutOrStderr(); out != bb {
+		t.Errorf("Expected errOutput to be returned")
+	}
+
+	ch := &Command{parent: c}
+	if out := ch.OutOrStderr(); out != bb {
+		t.Errorf("Expected parent's errOutput to be returned")
+	}
 }
 
 func TestFlagErrorFunc(t *testing.T) {

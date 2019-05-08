@@ -177,8 +177,10 @@ type Command struct {
 	// that we can use on every pflag set and children commands
 	globNormFunc func(f *flag.FlagSet, name string) flag.NormalizedName
 
-	// output is an output writer defined by user.
-	output io.Writer
+	// stdOutput is an output writer defined by user.
+	stdOutput io.Writer
+	// errOutput is an err output writer defined by user.
+	errOutput io.Writer
 	// usageFunc is usage func defined by user.
 	usageFunc func(*Command) error
 	// usageTemplate is usage template defined by user.
@@ -204,9 +206,19 @@ func (c *Command) SetArgs(a []string) {
 }
 
 // SetOutput sets the destination for usage and error messages.
-// If output is nil, os.Stderr is used.
 func (c *Command) SetOutput(output io.Writer) {
-	c.output = output
+	c.stdOutput = output
+	c.errOutput = output
+}
+
+// SetStdout sets the destination for standard messages.
+func (c *Command) SetStdout(output io.Writer) {
+	c.stdOutput = output
+}
+
+// SetStderr sets the destination for error messages.
+func (c *Command) SetStderr(output io.Writer) {
+	c.errOutput = output
 }
 
 // SetUsageFunc sets usage function. Usage can be defined by application.
@@ -259,22 +271,24 @@ func (c *Command) SetGlobalNormalizationFunc(n func(f *flag.FlagSet, name string
 
 // OutOrStdout returns output to stdout.
 func (c *Command) OutOrStdout() io.Writer {
-	return c.getOut(os.Stdout)
+	if c.stdOutput != nil {
+		return c.stdOutput
+	}
+	if c.HasParent() {
+		return c.parent.OutOrStdout()
+	}
+	return os.Stdout
 }
 
 // OutOrStderr returns output to stderr
 func (c *Command) OutOrStderr() io.Writer {
-	return c.getOut(os.Stderr)
-}
-
-func (c *Command) getOut(def io.Writer) io.Writer {
-	if c.output != nil {
-		return c.output
+	if c.errOutput != nil {
+		return c.errOutput
 	}
 	if c.HasParent() {
-		return c.parent.getOut(def)
+		return c.parent.OutOrStderr()
 	}
-	return def
+	return os.Stderr
 }
 
 // UsageFunc returns either the function set by SetUsageFunc for this command
@@ -331,11 +345,13 @@ func (c *Command) Help() error {
 
 // UsageString return usage string.
 func (c *Command) UsageString() string {
-	tmpOutput := c.output
+	tmpOut := c.stdOutput
+	tmpErr := c.errOutput
 	bb := new(bytes.Buffer)
 	c.SetOutput(bb)
 	c.Usage()
-	c.output = tmpOutput
+	c.stdOutput = tmpOut
+	c.errOutput = tmpErr
 	return bb.String()
 }
 
